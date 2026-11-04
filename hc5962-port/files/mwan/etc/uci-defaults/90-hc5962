@@ -18,44 +18,44 @@
 [ -x /etc/init.d/8021x ] && /etc/init.d/8021x enable
 
 # --- LAN: 192.168.1.30/24, routed NAT + DHCP ----------------------------
-uci -q set network.lan='interface'
-uci -q set network.lan.device='br-lan'
-uci -q set network.lan.proto='static'
+uci -q set network.lan=interface
+uci -q set network.lan.device=br-lan
+uci -q set network.lan.proto=static
 uci -q delete network.lan.ipaddr
-uci -q add_list network.lan.ipaddr='192.168.1.30/24'
+uci -q add_list network.lan.ipaddr=192.168.1.30/24
 uci -q delete network.lan.gateway
 uci -q delete network.lan.dns
-uci -q set network.lan.ip6assign='60'
+uci -q set network.lan.ip6assign=60
 
 # --- WANs ---------------------------------------------------------------
 # wan: wired DHCP; the 802.1X supplicant runs on the same device.
-uci -q set network.wan='interface'
-uci -q set network.wan.device='wan'
-uci -q set network.wan.proto='dhcp'
-uci -q set network.wan.metric='10'
+uci -q set network.wan=interface
+uci -q set network.wan.device=wan
+uci -q set network.wan.proto=dhcp
+uci -q set network.wan.metric=10
 
 # wwan: WiFi STA, managed by hc5962-wifi/travelmate; no fixed device.
-uci -q set network.wwan='interface'
-uci -q set network.wwan.proto='dhcp'
-uci -q set network.wwan.metric='20'
+uci -q set network.wwan=interface
+uci -q set network.wwan.proto=dhcp
+uci -q set network.wwan.metric=20
 uci -q delete network.wwan.device
 uci -q delete network.wwan6
 
 # usbwan: RNDIS/ECM/NCM by default; switch to qmi/mbim for LTE sticks.
-uci -q set network.usbwan='interface'
-uci -q set network.usbwan.device='usb0'
-uci -q set network.usbwan.proto='dhcp'
-uci -q set network.usbwan.metric='30'
+uci -q set network.usbwan=interface
+uci -q set network.usbwan.device=usb0
+uci -q set network.usbwan.proto=dhcp
+uci -q set network.usbwan.metric=30
 uci -q delete network.usbwan6
 
 # --- DHCP server on LAN only -------------------------------------------
-uci -q set dhcp.lan.interface='lan'
-uci -q set dhcp.lan.ignore='0'
-uci -q set dhcp.lan.dhcpv4='server'
-uci -q set dhcp.lan.start='100'
-uci -q set dhcp.lan.limit='150'
-uci -q set dhcp.lan.leasetime='12h'
-uci -q set dhcp.odhcpd.maindhcp='0'
+uci -q set dhcp.lan.interface=lan
+uci -q set dhcp.lan.ignore=0
+uci -q set dhcp.lan.dhcpv4=server
+uci -q set dhcp.lan.start=100
+uci -q set dhcp.lan.limit=150
+uci -q set dhcp.lan.leasetime=12h
+uci -q set dhcp.odhcpd.maindhcp=0
 
 # --- firewall: put all WANs in the wan zone, NAT on ---------------------
 i=0
@@ -72,8 +72,8 @@ if [ -n "$zone" ]; then
 		uci -q del_list "firewall.$zone.network=$net"
 		uci -q add_list "firewall.$zone.network=$net"
 	done
-	uci -q set "firewall.$zone.masq='1'"
-	uci -q set "firewall.$zone.mtu_fix='1'"
+	uci -q set "firewall.$zone.masq=1"
+	uci -q set "firewall.$zone.mtu_fix=1"
 fi
 
 hc5962_system_defaults

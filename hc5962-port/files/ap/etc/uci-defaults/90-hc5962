@@ -16,14 +16,14 @@
 [ -x /etc/init.d/8021x ] && /etc/init.d/8021x enable
 
 # --- LAN: keep 192.168.1.30/24, upstream gateway .1 ---------------------
-uci -q set network.lan='interface'
-uci -q set network.lan.device='br-lan'
-uci -q set network.lan.proto='static'
+uci -q set network.lan=interface
+uci -q set network.lan.device=br-lan
+uci -q set network.lan.proto=static
 uci -q delete network.lan.ipaddr
-uci -q add_list network.lan.ipaddr='192.168.1.30/24'
-uci -q set network.lan.gateway='192.168.1.1'
+uci -q add_list network.lan.ipaddr=192.168.1.30/24
+uci -q set network.lan.gateway=192.168.1.1
 uci -q delete network.lan.dns
-uci -q add_list network.lan.dns='192.168.1.1'
+uci -q add_list network.lan.dns=192.168.1.1
 uci -q delete network.lan.ip6assign
 
 # Add the WAN port to br-lan so it can be used as the wired uplink.
@@ -37,32 +37,32 @@ while uci -q get "network.@device[$i]" >/dev/null 2>&1; do
 done
 
 # --- no routed WAN / no local DHCP --------------------------------------
-uci -q set network.wan='interface'
-uci -q set network.wan.device='wan'
-uci -q set network.wan.proto='none'
+uci -q set network.wan=interface
+uci -q set network.wan.device=wan
+uci -q set network.wan.proto=none
 uci -q delete network.wan.metric
 uci -q delete network.wan6
 
 # WiFi STA interface (travelmate or hc5962-wifi manages it).
-uci -q set network.wwan='interface'
-uci -q set network.wwan.proto='dhcp'
+uci -q set network.wwan=interface
+uci -q set network.wwan.proto=dhcp
 uci -q delete network.wwan.device
 uci -q delete network.wwan.metric
 uci -q delete network.wwan6
 
 # relayd: bridge br-lan and the WiFi STA interface.
-uci -q set network.relay='interface'
-uci -q set network.relay.proto='relay'
+uci -q set network.relay=interface
+uci -q set network.relay.proto=relay
 uci -q delete network.relay.network
-uci -q add_list network.relay.network='lan'
-uci -q add_list network.relay.network='wwan'
+uci -q add_list network.relay.network=lan
+uci -q add_list network.relay.network=wwan
 
-uci -q set dhcp.lan.ignore='1'
-uci -q set dhcp.lan.dhcpv4='disabled'
-uci -q set dhcp.lan.dhcpv6='disabled'
-uci -q set dhcp.lan.ra='disabled'
-uci -q set dhcp.odhcpd.maindhcp='0'
-uci -q set dhcp.wan.ignore='1'
+uci -q set dhcp.lan.ignore=1
+uci -q set dhcp.lan.dhcpv4=disabled
+uci -q set dhcp.lan.dhcpv6=disabled
+uci -q set dhcp.lan.ra=disabled
+uci -q set dhcp.odhcpd.maindhcp=0
+uci -q set dhcp.wan.ignore=1
 
 # No masquerading in bridge mode; remove wwan from the WAN firewall zone.
 i=0
@@ -77,8 +77,8 @@ done
 if [ -n "$zone" ]; then
 	uci -q del_list "firewall.$zone.network=wwan"
 	uci -q del_list "firewall.$zone.network=wwan6"
-	uci -q set "firewall.$zone.masq='0'"
-	uci -q set "firewall.$zone.mtu_fix='0'"
+	uci -q set "firewall.$zone.masq=0"
+	uci -q set "firewall.$zone.mtu_fix=0"
 fi
 
 hc5962_system_defaults
