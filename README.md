@@ -1,5 +1,9 @@
 # HC5962 multi-source OpenWrt build
 
+[![Build OpenWrt for HC5962](https://github.com/hpqztsc/openwrt-hc5962/actions/workflows/build-hc5962.yml/badge.svg)](https://github.com/hpqztsc/openwrt-hc5962/actions/workflows/build-hc5962.yml)
+
+仓库：<https://github.com/hpqztsc/openwrt-hc5962>
+
 HiWiFi HC5962（极路由4 / B70，MT7621A + MT7603 + MT7612，128M NAND）的多源码 OpenWrt 构建配方。
 
 支持：

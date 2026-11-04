@@ -256,6 +256,23 @@ uci commit network && ifup wan && ifup wwan
 - **LEDE 不生成 initramfs**：其 `uimage-lzma-loader` 与 sysupgrade 共用 kernel 文件会冲突，只产出 factory/sysupgrade。其余四个源码默认同时产出 initramfs。
 - **24.10**：ramips DTS 路径与 main/25.12 相同（`target/linux/ramips/dts/`），不需要额外补丁。
 
+## 构建验证
+
+2026-11-04 在 Ubuntu 22.04（32 核 / 32 GB，GNU tar 1.35）上完成：
+
+- `main` / `2512` / `2410` / `immortalwrt` / `lede` 五个源码的 `make defconfig` 全部通过；
+- 五个源码的完整构建全部通过，产物约 11–16 MB（factory / sysupgrade，部分含 initramfs）；
+- 设备、`wpad-openssl`、`luci-ssl` 等关键包在 `.config` 中均正确选中。
+
+踩坑记录：
+
+- Ubuntu 22.04 的 GNU tar 1.34 会让 git 源 tarball 的哈希与 OpenWrt 期望值不一致，需要 tar >= 1.35；
+- OpenWrt 以 root 构建需要 `FORCE_UNSAFE_CONFIGURE=1`（脚本已设置）；
+- 不能 `git clone --depth 1`：base-files 用 `git describe` 生成版本，浅克隆会得到 apk 不接受的 `~unknown`；
+- LEDE 的 6.18 内核默认带 BTF/FTRACE/perf/debug info，会超过 HC5962 的 4 MB kernel 分区；`config/lede.config` 已关闭这些选项；
+- LEDE 的 `uimage-lzma-loader` 与 sysupgrade 共用 kernel 目标，因此 LEDE 配置不生成 initramfs；
+- LEDE 默认 LuCI 应用集依赖 `libustream-openssl`，所以 LEDE 使用 `luci-ssl-openssl` 而不是 `luci-ssl`。
+
 ## 已知限制
 
 - 只支持标准 802.1X/EAPOL；锐捷等私有认证需要专用客户端。
