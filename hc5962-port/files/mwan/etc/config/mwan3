@@ -8,8 +8,8 @@ config interface 'wan'
 	option enabled '1'
 	option family 'ipv4'
 	option reliability '1'
-	list track_ip '1.1.1.1'
-	list track_ip '223.5.5.5'
+	# This wired network blocks external ICMP; track the LAN gateway.
+	list track_ip '172.20.86.1'
 
 config interface 'wwan'
 	option enabled '1'
@@ -32,12 +32,12 @@ config member 'wan_m1'
 
 config member 'wwan_m1'
 	option interface 'wwan'
-	option metric '1'
+	option metric '2'
 	option weight '1'
 
 config member 'usbwan_m1'
 	option interface 'usbwan'
-	option metric '1'
+	option metric '3'
 	option weight '1'
 
 config policy 'failover'

@@ -34,7 +34,7 @@ _write_config() {
 	local keypass="$1" domain="$2" altsubject="$3" eapol="$4"
 	local eap_upper
 
-	eap_upper=$(printf '%s' "$eap" | tr '[:lower:]' '[:upper:]')
+	eap_upper=$(printf '%s' "$eap" | tr 'a-z' 'A-Z')
 
 	umask 077
 	{
@@ -96,7 +96,7 @@ start_service() {
 	config_get altsubject wan altsubject_match ''
 	config_get eapol wan eapol_version ''
 
-	eap_upper=$(printf '%s' "$eap" | tr '[:lower:]' '[:upper:]')
+	eap_upper=$(printf '%s' "$eap" | tr 'a-z' 'A-Z')
 
 	if [ "$eap_upper" = "TLS" ]; then
 		if [ -z "$client_cert" ] || [ -z "$private_key" ]; then
