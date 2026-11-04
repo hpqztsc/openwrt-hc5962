@@ -221,9 +221,11 @@ hc5962_system_defaults() {
 	uci -q set system.ntp.enabled=1
 	uci -q commit system
 
-	# Default the LuCI language to Chinese when the language pack is present.
-	if [ "$(uci -q get luci.main)" = "core" ]; then
+	# Default LuCI to Simplified Chinese.
+	if [ -f /etc/config/luci ]; then
+		uci -q set luci.main=core
 		uci -q set luci.main.lang=zh-cn
+		uci -q set luci.languages.zh_cn=zh-cn
 		uci -q commit luci
 	fi
 }
