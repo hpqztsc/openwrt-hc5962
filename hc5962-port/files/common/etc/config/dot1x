@@ -1,0 +1,34 @@
+# Wired 802.1X (EAPOL) supplicant on the WAN port.
+#
+# Enable and configure it with the helper:
+#  8021x set <identity> <password> [eap] [phase2]
+#  8021x set-tls <identity> <ca> <cert> <key> [key-password]
+#
+# Or edit this file directly and run: /etc/init.d/8021x restart
+#
+# Common EAP methods: peap (default), ttls, tls, pwd
+# Typical phase2 values: auth=MSCHAPV2 (PEAP/TTLS), auth=PAP (TTLS)
+
+config dot1x 'wan'
+	option enabled '0'
+	option device 'wan'
+	# netifd interface to renew after the port is authorized
+	option network 'wan'
+
+	option eap 'peap'
+	option identity ''
+	option password ''
+	option anonymous_identity ''
+
+	# Optional TLS material (EAP-TLS, and for validating PEAP/TTLS servers).
+	option ca_cert ''
+	option client_cert ''
+	option private_key ''
+	option private_key_passwd ''
+	option domain_suffix_match ''
+	option altsubject_match ''
+
+	# Optional wpa_supplicant overrides.
+	option phase1 ''
+	option phase2 'auth=MSCHAPV2'
+	option eapol_version ''

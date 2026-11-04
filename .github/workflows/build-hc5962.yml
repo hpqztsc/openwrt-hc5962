@@ -1,0 +1,158 @@
+name: Build OpenWrt for HC5962
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'hc5962-port/**'
+      - 'scripts/**'
+      - '.github/workflows/build-hc5962.yml'
+  tags:
+    - 'v*'
+
+permissions:
+  contents: read
+
+env:
+  TZ: Asia/Shanghai
+  FORCE_UNSAFE_CONFIGURE: '1'
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    concurrency:
+      group: build-hc5962-${{ github.ref }}-${{ matrix.name }}
+      cancel-in-progress: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: openwrt-main
+            repo: https://github.com/openwrt/openwrt
+            branch: main
+            source: main
+          - name: openwrt-25.12
+            repo: https://github.com/openwrt/openwrt
+            branch: openwrt-25.12
+            source: 2512
+          - name: openwrt-24.10
+            repo: https://github.com/openwrt/openwrt
+            branch: openwrt-24.10
+            source: 2410
+          - name: immortalwrt
+            repo: https://github.com/immortalwrt/immortalwrt
+            branch: master
+            source: immortalwrt
+          - name: lede
+            repo: https://github.com/coolsnowwolf/lede
+            branch: master
+            source: lede
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force || true
+          df -hT
+
+      - name: Install build dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo -E apt-get -qq update
+          sudo -E apt-get -qq install -y \
+            ack antlr3 asciidoc autoconf automake autopoint binutils bison \
+            build-essential bzip2 ccache cmake cpio curl device-tree-compiler \
+            fastjar flex gawk gettext gcc-multilib g++-multilib git gperf \
+            haveged help2man intltool libc6-dev-i386 libelf-dev libfuse-dev \
+            libglib2.0-dev libgmp3-dev libltdl-dev libmpc-dev libmpfr-dev \
+            libncurses-dev libpython3-dev libreadline-dev libssl-dev libtool \
+            lrzsz mkisofs msmtp ninja-build p7zip-full patch pkgconf python3 \
+            python3-pyelftools python3-setuptools qemu-utils rsync scons \
+            squashfs-tools subversion swig texinfo time uglifyjs unzip \
+            upx-ucl vim wget xmlto xxd zlib1g-dev zstd
+
+      - name: Ensure GNU tar 1.35+
+        run: |
+          if tar --version | head -n1 | grep -qE ' 1\.(3[5-9]|[4-9][0-9])'; then
+            tar --version | head -n1
+          else
+            # Ubuntu 22.04 ships GNU tar 1.34, which produces different
+            # git-archive tarballs and breaks OpenWrt's PKG_HASH check.
+            curl -fsSL https://ftp.gnu.org/gnu/tar/tar-1.35.tar.xz -o /tmp/tar-1.35.tar.xz
+            tar -C /tmp -xf /tmp/tar-1.35.tar.xz
+            cd /tmp/tar-1.35
+            ./configure --disable-nls
+            make -j"$(nproc)"
+            sudo install -m755 src/tar /usr/local/bin/tar
+            tar --version | head -n1
+          fi
+
+      - name: Clone ${{ matrix.name }}
+        run: |
+          # Full clone: base-files uses git describe for its version; a
+          # shallow clone produces "~unknown", which apk rejects.
+          git clone -b "${{ matrix.branch }}" "${{ matrix.repo }}" openwrt
+          cd openwrt && git log --oneline -1
+
+      - name: Update and install feeds
+        run: |
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+
+      - name: Apply HC5962 overlay
+        run: sh hc5962-port/apply.sh "${{ matrix.source }}" openwrt
+
+      - name: Configure
+        run: |
+          cat hc5962-port/config/common.config \
+              hc5962-port/config/${{ matrix.source }}.config > openwrt/.config
+          cd openwrt
+          make defconfig
+
+          grep -qE '^CONFIG_TARGET_(DEVICE_)?ramips_mt7621_DEVICE_hiwifi_hc5962=y$' .config || {
+            echo "::error::hiwifi_hc5962 device not selected"
+            exit 1
+          }
+          grep -qx 'CONFIG_PACKAGE_wpad-openssl=y' .config || {
+            echo "::error::wpad-openssl missing"
+            exit 1
+          }
+          grep -qE '^CONFIG_PACKAGE_luci-ssl(-openssl)?=y$' .config || {
+            echo "::error::luci-ssl / luci-ssl-openssl missing"
+            exit 1
+          }
+          if grep -qx 'CONFIG_PACKAGE_wpad-basic-mbedtls=y' .config; then
+            echo "::error::wpad-basic-mbedtls is still selected"
+            exit 1
+          fi
+          echo "--- target ---"
+          grep -E '^CONFIG_TARGET_(ramips|MULTI_PROFILE|DEVICE_)' .config | head
+
+      - name: Download package sources
+        run: |
+          cd openwrt
+          make download -j8 || make download -j1 V=s
+
+      - name: Build firmware
+        run: |
+          cd openwrt
+          make -j"$(nproc)" || make -j1 V=s
+          find bin/targets/ramips/mt7621 -maxdepth 1 -type f -printf '%f %s\n'
+
+      - name: Upload firmware
+        uses: actions/upload-artifact@v4
+        with:
+          name: openwrt-hc5962-${{ matrix.name }}-${{ github.run_number }}
+          path: |
+            openwrt/bin/targets/ramips/mt7621/*.bin
+            openwrt/bin/targets/ramips/mt7621/*.itb
+            openwrt/bin/targets/ramips/mt7621/sha256sums
+          if-no-files-found: error

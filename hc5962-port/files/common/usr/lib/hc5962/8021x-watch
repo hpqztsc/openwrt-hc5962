@@ -1,0 +1,28 @@
+#!/bin/sh
+#
+# Watch the wired 802.1X state and ask netifd to renew DHCP when the port
+# becomes authorized.  Some switches hand out a guest-VLAN lease before
+# authentication; without this the router would keep that lease after EAP
+# succeeds.
+#
+
+CTRL=/var/run/wpa_supplicant-wired
+IFACE="$1"
+NET="${2:-wan}"
+LAST=
+
+while :; do
+	STATE=$(wpa_cli -p "$CTRL" -i "$IFACE" status 2>/dev/null | \
+		sed -n 's/^wpa_state=//p')
+
+	if [ "$STATE" != "$LAST" ]; then
+		[ -n "$STATE" ] && logger -t 8021x "$IFACE: $STATE"
+		if [ "$STATE" = "COMPLETED" ]; then
+			ubus call "network.interface.$NET" renew >/dev/null 2>&1 ||
+				ifup "$NET" >/dev/null 2>&1
+		fi
+		LAST="$STATE"
+	fi
+
+	sleep 3
+done

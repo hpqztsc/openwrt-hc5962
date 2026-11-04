@@ -1,0 +1,128 @@
+#!/bin/sh
+#
+# 8021x - control and inspect the wired 802.1X supplicant.
+#
+
+CTRL=/var/run/wpa_supplicant-wired
+
+usage() {
+	cat <<EOF
+Usage:
+  8021x status
+  8021x log [lines]
+  8021x set <identity> <password> [eap] [phase2]
+  8021x set-tls <identity> <ca> <cert> <key> [key-password]
+  8021x device <netdev>
+  8021x enable | disable
+  8021x show
+
+Examples:
+  8021x set "user@campus" "secret"
+  8021x set "user" "secret" ttls "auth=PAP"
+  8021x set-tls "user@campus" /etc/8021x/ca.pem \\
+      /etc/8021x/client.pem /etc/8021x/client.key
+  8021x device wan.100        # authenticate on a VLAN sub-interface
+
+The configuration lives in /etc/config/dot1x and the service is
+/etc/init.d/8021x.  A successful run can be checked with "8021x status".
+EOF
+}
+
+commit_dot1x() {
+	uci commit dot1x
+	chmod 600 /etc/config/dot1x 2>/dev/null || true
+}
+
+get_iface() {
+	local d
+	d=$(uci -q get dot1x.wan.device)
+	[ -n "$d" ] || d=wan
+	printf '%s\n' "$d"
+}
+
+need_running() {
+	local iface="$1"
+	[ -S "$CTRL/$iface" ] || {
+		echo "802.1x supplicant is not running on $iface" >&2
+		echo "check: 8021x log" >&2
+		exit 1
+	}
+}
+
+case "${1:-status}" in
+	status)
+		iface=$(get_iface)
+		need_running "$iface"
+		exec wpa_cli -p "$CTRL" -i "$iface" status
+		;;
+	log)
+		logread | grep -E 'wpa_supplicant|8021x' | tail -n "${2:-50}"
+		;;
+	set)
+		shift
+		if [ $# -lt 2 ]; then
+			usage
+			exit 1
+		fi
+		uci set dot1x.wan.identity="$1"
+		uci set dot1x.wan.password="$2"
+		[ -n "${3:-}" ] && uci set dot1x.wan.eap="$3"
+		[ -n "${4:-}" ] && uci set dot1x.wan.phase2="$4"
+		uci set dot1x.wan.enabled=1
+		commit_dot1x
+		/etc/init.d/8021x restart
+		echo "saved; check '8021x status' in a few seconds"
+		;;
+	set-tls)
+		shift
+		if [ $# -lt 4 ]; then
+			usage
+			exit 1
+		fi
+		uci set dot1x.wan.identity="$1"
+		uci set dot1x.wan.eap=tls
+		uci set dot1x.wan.ca_cert="$2"
+		uci set dot1x.wan.client_cert="$3"
+		uci set dot1x.wan.private_key="$4"
+		if [ -n "${5:-}" ]; then
+			uci set dot1x.wan.private_key_passwd="$5"
+		else
+			uci -q delete dot1x.wan.private_key_passwd
+		fi
+		uci -q delete dot1x.wan.password
+		uci -q delete dot1x.wan.phase2
+		uci set dot1x.wan.enabled=1
+		commit_dot1x
+		/etc/init.d/8021x restart
+		echo "saved; check '8021x status' in a few seconds"
+		;;
+	device)
+		if [ -z "${2:-}" ]; then
+			usage
+			exit 1
+		fi
+		uci set dot1x.wan.device="$2"
+		commit_dot1x
+		/etc/init.d/8021x restart
+		echo "802.1X now uses device $2"
+		;;
+	enable|disable)
+		if [ "$1" = "enable" ]; then
+			uci set dot1x.wan.enabled=1
+		else
+			uci set dot1x.wan.enabled=0
+		fi
+		commit_dot1x
+		/etc/init.d/8021x restart
+		echo "802.1X $1d"
+		;;
+	show)
+		uci -q show dot1x | sed \
+			-e "s/^\(dot1x\.wan\.password=\).*/\1'***'/" \
+			-e "s/^\(dot1x\.wan\.private_key_passwd=\).*/\1'***'/"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+esac

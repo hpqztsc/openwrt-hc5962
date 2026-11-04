@@ -1,0 +1,27 @@
+#!/bin/sh
+#
+# First-boot defaults for HiWiFi HC5962 (极路由4 / B70).
+# Runs once from /etc/init.d/boot, before netifd starts.
+#
+
+. /usr/lib/hc5962/common.sh
+
+# Enable (not start) the 802.1X service; it exits immediately while
+# /etc/config/dot1x still has "enabled 0".
+[ -x /etc/init.d/8021x ] && /etc/init.d/8021x enable
+
+# Keep user settings across "sysupgrade" (config-preserving).  A fresh
+# install or "sysupgrade -n" has no marker and gets the defaults below.
+[ -e /etc/hc5962-initialized ] && exit 0
+
+hc5962_network_defaults
+hc5962_system_defaults
+
+if hc5962_wifi_defaults; then
+	touch /etc/hc5962-initialized
+	exit 0
+fi
+
+# Keep this uci-defaults script around so it retries on the next boot.
+logger -t hc5962 "wireless radios not ready, retrying on next boot"
+exit 1

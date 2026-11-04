@@ -1,0 +1,5 @@
+/build/
+/dl/
+/openwrt/
+/output/
+*.tar.gz

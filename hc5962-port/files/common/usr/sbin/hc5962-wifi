@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+# hc5962-wifi - configure the Wi-Fi uplink (STA) and downlink AP of HC5962.
+#
+# The default layout uses the 5 GHz radio as STA uplink and the 2.4 GHz radio
+# as AP.  If your upstream network is 2.4 GHz only, pass "2g" as the last
+# argument and the roles are swapped.
+#
+
+. /usr/lib/hc5962/common.sh
+
+usage() {
+	cat <<EOF
+Usage:
+  hc5962-wifi status
+  hc5962-wifi uplink <ssid> [password] [2g|5g]
+  hc5962-wifi reset
+
+Examples:
+  hc5962-wifi uplink "MyHome" "secret"       # 5G uplink, 2.4G AP
+  hc5962-wifi uplink "Campus" "" 2g          # 2.4G open uplink, 5G AP
+
+After changing the uplink, wait ~10 seconds and check "hc5962-wifi status".
+EOF
+}
+
+cmd_status() {
+	local s state
+
+	printf '%-8s %-8s %-6s %-24s %s\n' IFACE DEVICE MODE SSID STATE
+	for s in ap_2g ap_5g sta_2g sta_5g; do
+		[ "$(uci -q get "wireless.$s")" = "wifi-iface" ] || continue
+		state=disabled
+		[ "$(uci -q get "wireless.$s.disabled")" = "0" ] && state=enabled
+		printf '%-8s %-8s %-6s %-24s %s\n' \
+			"$s" \
+			"$(uci -q get "wireless.$s.device")" \
+			"$(uci -q get "wireless.$s.mode")" \
+			"$(uci -q get "wireless.$s.ssid")" \
+			"$state"
+	done
+
+	if command -v iwinfo >/dev/null 2>&1; then
+		echo
+		iwinfo 2>/dev/null
+	fi
+}
+
+case "${1:-status}" in
+	status)
+		cmd_status
+		;;
+	uplink)
+		shift
+		if [ $# -lt 1 ]; then
+			usage
+			exit 1
+		fi
+		hc5962_wifi_uplink "$1" "${2:-}" "${3:-5g}" || {
+			echo "failed: radio for the requested band not found" >&2
+			exit 1
+		}
+		/sbin/wifi reload >/dev/null 2>&1 || /sbin/wifi up
+		echo "uplink configured on ${3:-5g}: $1"
+		echo "run 'hc5962-wifi status' in a few seconds"
+		;;
+	reset)
+		hc5962_wifi_defaults || {
+			echo "failed: wifi radios not found" >&2
+			exit 1
+		}
+		/sbin/wifi reload >/dev/null 2>&1 || /sbin/wifi up
+		echo "wireless reset to defaults"
+		;;
+	*)
+		usage
+		exit 1
+		;;
+esac
