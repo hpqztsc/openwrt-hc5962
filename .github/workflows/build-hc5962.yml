@@ -8,8 +8,6 @@ on:
       - 'hc5962-port/**'
       - 'scripts/**'
       - '.github/workflows/build-hc5962.yml'
-  tags:
-    - 'v*'
 
 permissions:
   contents: read
