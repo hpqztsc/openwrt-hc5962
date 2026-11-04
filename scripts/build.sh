@@ -33,16 +33,21 @@ fi
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 SOURCE=${1:-}
+PROFILE=${PROFILE:-default}
 
 usage() {
 	cat <<EOF
-Usage: $0 <main|2512|2410|immortalwrt|lede>
+Usage: [PROFILE=default|ap|mwan] $0 <main|2512|2410|immortalwrt|lede>
 
   main         openwrt/openwrt main            (kernel 6.18, apk)
   2512         openwrt/openwrt openwrt-25.12   (kernel 6.12, apk)
   2410         openwrt/openwrt openwrt-24.10   (kernel 6.6, opkg)
   immortalwrt  immortalwrt/immortalwrt master  (kernel 6.18, apk)
   lede         coolsnowwolf/lede master        (kernel 6.18, opkg)
+
+  PROFILE=default  NAT router, LAN 192.168.123.1
+  PROFILE=ap       bridge/AP, LAN 192.168.1.30, DHCP off
+  PROFILE=mwan     multi-WAN NAT, LAN 192.168.123.1 + 192.168.1.30 alias
 EOF
 }
 
@@ -73,7 +78,11 @@ lede)
 	;;
 esac
 
-SRC=${SRC:-"$ROOT/build/$SOURCE/openwrt"}
+if [ "$PROFILE" = "default" ]; then
+	SRC=${SRC:-"$ROOT/build/$SOURCE/openwrt"}
+else
+	SRC=${SRC:-"$ROOT/build/$SOURCE-$PROFILE/openwrt"}
+fi
 DL_DIR=${DL_DIR:-"$ROOT/dl"}
 JOBS=${JOBS:-$(nproc 2>/dev/null || echo 4)}
 
@@ -94,12 +103,17 @@ cd "$SRC"
 ./scripts/feeds update -a
 ./scripts/feeds install -a
 
-echo "==> applying HC5962 overlay ($SOURCE)"
-sh "$ROOT/hc5962-port/apply.sh" "$SOURCE" "$SRC"
+echo "==> applying HC5962 overlay ($SOURCE, profile=$PROFILE)"
+sh "$ROOT/hc5962-port/apply.sh" "$SOURCE" "$SRC" "$PROFILE"
 
 echo "==> writing .config"
-cat "$ROOT/hc5962-port/config/common.config" \
-    "$ROOT/hc5962-port/config/$SOURCE.config" > .config
+{
+	cat "$ROOT/hc5962-port/config/common.config"
+	if [ "$PROFILE" != "default" ]; then
+		cat "$ROOT/hc5962-port/config/$PROFILE.config"
+	fi
+	cat "$ROOT/hc5962-port/config/$SOURCE.config"
+} > .config
 
 make defconfig
 

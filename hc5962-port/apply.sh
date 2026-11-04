@@ -2,24 +2,35 @@
 #
 # Apply HC5962 support/overlay on top of a clean OpenWrt tree.
 #
-# Usage: ./apply.sh <main|2512|2410|immortalwrt|lede> [path-to-openwrt]
+# Usage: ./apply.sh <main|2512|2410|immortalwrt|lede> [path-to-openwrt] [profile]
+#
+# profile: default (NAT router), ap (bridge, 192.168.1.30), mwan (multi-WAN NAT)
 #
 # The device (ramips/mt7621/hiwifi_hc5962) is already present in every
 # supported tree, so no board patch is required.  The patches/<source>/
 # directories exist for future fixes; overlay files are copied from
-# files/common (and files/<source> if it exists).
+# files/common, files/<source> and files/<profile>.
 #
 set -eu
 
 SRC_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SOURCE=${1:-}
 OWRT_DIR=${2:-openwrt}
+PROFILE=${3:-default}
 
 case "$SOURCE" in
 main|2512|2410|immortalwrt|lede) ;;
 *)
 	echo "error: unknown source '$SOURCE'" >&2
 	echo "use: main | 2512 | 2410 | immortalwrt | lede" >&2
+	exit 1
+	;;
+esac
+
+case "$PROFILE" in
+default|ap|mwan) ;;
+*)
+	echo "error: unknown profile '$PROFILE' (use default, ap or mwan)" >&2
 	exit 1
 	;;
 esac
@@ -49,6 +60,15 @@ if [ -d "$SRC_DIR/files/$SOURCE" ]; then
 	cp -R "$SRC_DIR/files/$SOURCE/." "$OWRT_DIR/files/"
 fi
 
+if [ "$PROFILE" != "default" ]; then
+	if [ ! -d "$SRC_DIR/files/$PROFILE" ]; then
+		echo "error: missing profile overlay files/$PROFILE" >&2
+		exit 1
+	fi
+	echo "==> installing $PROFILE profile files"
+	cp -R "$SRC_DIR/files/$PROFILE/." "$OWRT_DIR/files/"
+fi
+
 # Enable the 802.1X service in the image itself, so it also runs on the very
 # first boot (uci-defaults "enable" is kept as a fallback for manual installs).
 mkdir -p "$OWRT_DIR/files/etc/rc.d"
@@ -60,6 +80,8 @@ ln -sf ../init.d/8021x "$OWRT_DIR/files/etc/rc.d/K898021x"
 if [ "$(id -u)" = 0 ]; then
 	chown -R 0:0 \
 		"$OWRT_DIR/files/etc/config/dot1x" \
+		"$OWRT_DIR/files/etc/config/travelmate" \
+		"$OWRT_DIR/files/etc/config/mwan3" \
 		"$OWRT_DIR/files/etc/init.d/8021x" \
 		"$OWRT_DIR/files/etc/uci-defaults/90-hc5962" \
 		"$OWRT_DIR/files/usr/lib/hc5962" \

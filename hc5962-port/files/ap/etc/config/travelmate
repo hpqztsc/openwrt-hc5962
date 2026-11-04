@@ -1,0 +1,3 @@
+config travelmate 'global'
+	option trm_enabled '0'
+	option trm_iface 'wwan'

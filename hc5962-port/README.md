@@ -63,6 +63,24 @@ hc5962/
 
 mt7621 目标默认会选 `wpad-basic-mbedtls`，`common.config` 里显式关闭它，避免和 `wpad-openssl` 冲突。
 
+## 运行 profile
+
+`apply.sh` 和 `build.sh` 支持三种 overlay profile：
+
+| profile | 网络模式 | LAN |
+|---|---|---|
+| `default` | NAT 路由，WAN 有线/802.1X + WiFi STA | `192.168.123.1/24`，DHCP 开 |
+| `ap` | AP/桥接，DHCP/NAT 关闭，relayd 桥接 WiFi STA | `192.168.1.30/24`，网关 `192.168.1.1` |
+| `mwan` | 多 WAN NAT，mwan3 failover `wan -> wwan -> usbwan` | `192.168.123.1/24` + 管理 alias `192.168.1.30/32` |
+
+`mwan` 的三路上行：
+
+- `wan`：有线，DHCP，可在同一接口上跑 802.1X
+- `wwan`：WiFi STA，`hc5962-wifi uplink` 或 travelmate 管理
+- `usbwan`：USB 网卡/手机共享，默认 `usb0` + DHCP；4G/5G 模块可改成 `qmi`/`mbim`
+
+注意：`192.168.1.30` 作为 LAN alias 的前提是**没有任何 WAN 使用 192.168.1.0/24**。如果有线 802.1X 上连也是 192.168.1.0/24，请把 `.30` 放到独立管理 VLAN/端口，或改用 `default` 的独立 LAN 网段。mwan3 只做 IPv4 failover，策略名 `failover`，成员按 `wan -> wwan -> usbwan` 排序。
+
 ## 构建
 
 ### 本地 Linux
@@ -75,6 +93,10 @@ mt7621 目标默认会选 `wpad-basic-mbedtls`，`common.config` 里显式关闭
 ./scripts/build.sh 2410            # openwrt-24.10
 ./scripts/build.sh immortalwrt
 ./scripts/build.sh lede
+
+# 多 WAN / AP 桥接 profile
+PROFILE=mwan ./scripts/build.sh 2410
+PROFILE=ap   ./scripts/build.sh 2410
 ```
 
 可选环境变量：

@@ -1,0 +1,102 @@
+#!/bin/sh
+#
+# Multi-WAN NAT first-boot defaults for HC5962 (profile: mwan).
+#
+# LAN: 192.168.123.1/24 with DHCP/NAT, plus management alias 192.168.1.30/32.
+# WAN: wan (wired, 802.1X-capable), wwan (WiFi STA), usbwan (USB tethering).
+# mwan3: failover wan -> wwan -> usbwan.
+#
+# The 192.168.1.30 alias only works if no WAN uses 192.168.1.0/24.  If the
+# wired 802.1X uplink is also 192.168.1.0/24, move the alias to a dedicated
+# management VLAN/port instead.
+#
+
+. /usr/lib/hc5962/common.sh
+
+[ -e /etc/hc5962-initialized ] && exit 0
+
+[ -x /etc/init.d/8021x ] && /etc/init.d/8021x enable
+
+# --- LAN: routed 192.168.123.0/24 + management alias .30 ----------------
+uci -q set network.lan='interface'
+uci -q set network.lan.device='br-lan'
+uci -q set network.lan.proto='static'
+uci -q delete network.lan.ipaddr
+uci -q add_list network.lan.ipaddr='192.168.123.1/24'
+uci -q add_list network.lan.ipaddr='192.168.1.30/32'
+uci -q delete network.lan.gateway
+uci -q delete network.lan.dns
+uci -q set network.lan.ip6assign='60'
+
+# --- WANs ---------------------------------------------------------------
+# wan: wired DHCP; the 802.1X supplicant runs on the same device.
+uci -q set network.wan='interface'
+uci -q set network.wan.device='wan'
+uci -q set network.wan.proto='dhcp'
+uci -q set network.wan.metric='10'
+
+# wwan: WiFi STA, managed by hc5962-wifi/travelmate; no fixed device.
+uci -q set network.wwan='interface'
+uci -q set network.wwan.proto='dhcp'
+uci -q set network.wwan.metric='20'
+uci -q delete network.wwan.device
+uci -q delete network.wwan6
+
+# usbwan: RNDIS/ECM/NCM by default; switch to qmi/mbim for LTE sticks.
+uci -q set network.usbwan='interface'
+uci -q set network.usbwan.device='usb0'
+uci -q set network.usbwan.proto='dhcp'
+uci -q set network.usbwan.metric='30'
+uci -q delete network.usbwan6
+
+# --- DHCP server on LAN only -------------------------------------------
+uci -q set dhcp.lan.interface='lan'
+uci -q set dhcp.lan.ignore='0'
+uci -q set dhcp.lan.dhcpv4='server'
+uci -q set dhcp.lan.start='100'
+uci -q set dhcp.lan.limit='150'
+uci -q set dhcp.lan.leasetime='12h'
+uci -q set dhcp.odhcpd.maindhcp='0'
+
+# --- firewall: put all WANs in the wan zone, NAT on ---------------------
+i=0
+zone=
+while uci -q get "firewall.@zone[$i]" >/dev/null 2>&1; do
+	if [ "$(uci -q get "firewall.@zone[$i].name")" = "wan" ]; then
+		zone="@zone[$i]"
+		break
+	fi
+	i=$((i + 1))
+done
+if [ -n "$zone" ]; then
+	for net in wwan wwan6 usbwan usbwan6; do
+		uci -q del_list "firewall.$zone.network=$net"
+		uci -q add_list "firewall.$zone.network=$net"
+	done
+	uci -q set "firewall.$zone.masq='1'"
+	uci -q set "firewall.$zone.mtu_fix='1'"
+fi
+
+hc5962_system_defaults
+
+# 2.4G AP, 5G STA placeholder.
+if ! hc5962_wifi_defaults; then
+	uci -q commit network
+	uci -q commit dhcp
+	uci -q commit firewall
+	uci -q commit system
+	logger -t hc5962 "wireless radios not ready, retrying multi-WAN defaults on next boot"
+	exit 1
+fi
+
+[ -x /etc/init.d/mwan3 ] && /etc/init.d/mwan3 enable
+[ -x /etc/init.d/nlbwmon ] && /etc/init.d/nlbwmon enable
+
+uci -q commit network
+uci -q commit dhcp
+uci -q commit firewall
+uci -q commit system
+uci -q commit wireless
+
+touch /etc/hc5962-initialized
+exit 0

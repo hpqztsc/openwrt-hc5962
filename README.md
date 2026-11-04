@@ -27,6 +27,10 @@ HiWiFi HC5962（极路由4 / B70，MT7621A + MT7603 + MT7612，128M NAND）的�
 ./scripts/build.sh 2410
 ./scripts/build.sh immortalwrt
 ./scripts/build.sh lede
+
+# 运行 profile：多 WAN / AP 桥接
+PROFILE=mwan ./scripts/build.sh 2410
+PROFILE=ap   ./scripts/build.sh 2410
 ```
 
 镜像：`build/<source>/openwrt/bin/targets/ramips/mt7621/`。
