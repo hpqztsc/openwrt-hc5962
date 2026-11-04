@@ -71,7 +71,7 @@ mt7621 目标默认会选 `wpad-basic-mbedtls`，`common.config` 里显式关闭
 |---|---|---|
 | `default` | NAT 路由，WAN 有线/802.1X + WiFi STA | `192.168.123.1/24`，DHCP 开 |
 | `ap` | AP/桥接，DHCP/NAT 关闭，relayd 桥接 WiFi STA | `192.168.1.30/24`，网关 `192.168.1.1` |
-| `mwan` | 多 WAN NAT，mwan3 failover `wan -> wwan -> usbwan` | `192.168.123.1/24` + 管理 alias `192.168.1.30/32` |
+| `mwan` | 多 WAN NAT，mwan3 failover `wan -> wwan -> usbwan` | `192.168.1.30/24`，DHCP `.100-.249` |
 
 `mwan` 的三路上行：
 
@@ -79,7 +79,7 @@ mt7621 目标默认会选 `wpad-basic-mbedtls`，`common.config` 里显式关闭
 - `wwan`：WiFi STA，`hc5962-wifi uplink` 或 travelmate 管理
 - `usbwan`：USB 网卡/手机共享，默认 `usb0` + DHCP；4G/5G 模块可改成 `qmi`/`mbim`
 
-注意：`192.168.1.30` 作为 LAN alias 的前提是**没有任何 WAN 使用 192.168.1.0/24**。如果有线 802.1X 上连也是 192.168.1.0/24，请把 `.30` 放到独立管理 VLAN/端口，或改用 `default` 的独立 LAN 网段。mwan3 只做 IPv4 failover，策略名 `failover`，成员按 `wan -> wwan -> usbwan` 排序。
+注意：`192.168.1.30/24` 作为 LAN 的前提是**有线/任何 WAN 不使用 192.168.1.0/24**（WiFi 上连是 172.x，USB 是独立网段，满足条件）。如果有线 WAN 改成 192.168.1.0/24，需要把 LAN 换到其他网段。mwan3 只做 IPv4 failover，策略名 `failover`，成员按 `wan -> wwan -> usbwan` 排序。
 
 ## 构建
 

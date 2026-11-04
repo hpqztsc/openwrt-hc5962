@@ -2,13 +2,13 @@
 #
 # Multi-WAN NAT first-boot defaults for HC5962 (profile: mwan).
 #
-# LAN: 192.168.123.1/24 with DHCP/NAT, plus management alias 192.168.1.30/32.
+# LAN: 192.168.1.30/24 with DHCP/NAT; LAN clients use .30 as gateway.
 # WAN: wan (wired, 802.1X-capable), wwan (WiFi STA), usbwan (USB tethering).
 # mwan3: failover wan -> wwan -> usbwan.
 #
-# The 192.168.1.30 alias only works if no WAN uses 192.168.1.0/24.  If the
-# wired 802.1X uplink is also 192.168.1.0/24, move the alias to a dedicated
-# management VLAN/port instead.
+# The wired WAN must not use 192.168.1.0/24 (the WiFi uplink is 172.x and USB
+# tethering is a separate subnet).  If the wired uplink is changed to
+# 192.168.1.0/24, move the LAN to another subnet instead.
 #
 
 . /usr/lib/hc5962/common.sh
@@ -17,13 +17,12 @@
 
 [ -x /etc/init.d/8021x ] && /etc/init.d/8021x enable
 
-# --- LAN: routed 192.168.123.0/24 + management alias .30 ----------------
+# --- LAN: 192.168.1.30/24, routed NAT + DHCP ----------------------------
 uci -q set network.lan='interface'
 uci -q set network.lan.device='br-lan'
 uci -q set network.lan.proto='static'
 uci -q delete network.lan.ipaddr
-uci -q add_list network.lan.ipaddr='192.168.123.1/24'
-uci -q add_list network.lan.ipaddr='192.168.1.30/32'
+uci -q add_list network.lan.ipaddr='192.168.1.30/24'
 uci -q delete network.lan.gateway
 uci -q delete network.lan.dns
 uci -q set network.lan.ip6assign='60'
