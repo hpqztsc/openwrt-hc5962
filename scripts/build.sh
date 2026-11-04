@@ -21,6 +21,9 @@ set -eu
 # OpenWrt host tools (tar, etc.) refuse to configure as root unless this is set.
 export FORCE_UNSAFE_CONFIGURE=1
 
+# LEDE image recipes write progress to fd 8; keep it open for sub-makes.
+exec 8>&1 9>&2
+
 # GNU tar < 1.35 produces different git-archive tarballs than the OpenWrt
 # build farm, which makes PKG_HASH checks fail for git-sourced packages.
 if ! tar --version 2>/dev/null | head -n1 | grep -qE ' 1\.(3[5-9]|[4-9][0-9])'; then

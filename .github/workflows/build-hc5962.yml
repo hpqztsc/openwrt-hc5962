@@ -141,6 +141,7 @@ jobs:
 
       - name: Build firmware
         run: |
+          exec 8>&1 9>&2
           cd openwrt
           make -j"$(nproc)" || make -j1 V=s
           find bin/targets/ramips/mt7621 -maxdepth 1 -type f -printf '%f %s\n'
